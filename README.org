@@ -1,0 +1,4 @@
+#+TITLE: SK Fractals
+
+This is some code I wrote to produce a Mandelbrot fractal using Racket
+(formerly known as PLT Scheme).
