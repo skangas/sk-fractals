@@ -60,17 +60,17 @@
   (- n1 (* (floor num-divides) n2)))
 
 ;; Mandelbrot
-(define (check-if-mandelbrot c)
+(define (point-to-value x y)
+  (+ (+ r-min (* (/ (- r-max r-min) canvas-width) x))
+     (+ i-min (* (/ (- i-max i-min) canvas-height) y))))
+
+(define (check-if-mandelbrot x y)
   (define (checker x c iterate)
    (if (or (zero? iterate) (> (magnitude x) 4.0))
        (and (> (magnitude x) 2.0)
             (list iterate x))
        (checker (+ (* x x) c) c (- iterate 1))))
-  (checker 0 c max-iterations))
-
-(define (point-to-value x y)
-  (+ (+ r-min (* (/ (- r-max r-min) canvas-width) x))
-     (+ i-min (* (/ (- i-max i-min) canvas-height) y))))
+  (checker 0 (point-to-value x y) max-iterations))
 
 (define (smooth-color iter c)
   (let* ((zn (magnitude c))
@@ -103,25 +103,52 @@
          (idx (modulo (exact-floor hue) 16)))
     (apply make-color (list-ref color-scheme idx))))
 
-(define (draw-mandelbrot dc width height)
+;; point
+(define (create-point x y color)
+  (list x y color))
+
+(define (get-x p)
+  (car p))
+
+(define (get-y p)
+  (cadr p))
+
+(define (get-color p)
+  (caddr p))
+
+;; return list of mandelbrot
+(define (calculate-mandelbrot width height)
   (define (draw-line x y)
     (if (> x width)
-        #t
-        (begin
-          (let* ((pt (check-if-mandelbrot (point-to-value x y)))
-                 (color (and pt (calc-color2 (car pt) (cadr pt)))))
-            (if (eq? pt #f)
-                (send dc set-pen "black" 1 'solid)
-                (send dc set-pen color 1 'solid))
-            (send dc draw-line x y (+ x 1) y))
-          (draw-line (+ x 1) y))))
+        '()
+        (cons
+         (let ((pt (check-if-mandelbrot x y)))
+           (create-point x y (if (eq? pt #f)
+                                 "black"
+                                 (calc-color2 (car pt) (cadr pt)))))
+         (draw-line (+ x 1) y))))
   (define (draw-lines y)
     (if (> y height)
-        #t
-        (begin
+        '()
+        (cons
           (draw-line 0 y)
           (draw-lines (+ y 1)))))
   (draw-lines 0))
+
+(define (draw-points dc lines)
+  (define (draw-line line)
+    (when (not (null? line))
+          (let ((color (get-color (car line)))
+                (x (get-x (car line)))
+                (y (get-y (car line))))
+            (send dc set-pen color 1 'solid)
+            (send dc draw-line x y (add1 x) y)
+            (draw-line (cdr line)))))
+  (define (draw-lines lines)
+    (when (not (null? lines))
+          (begin (draw-line (car lines))
+                 (draw-lines (cdr lines)))))
+  (draw-lines lines))
 
 ;; GUI
 
@@ -135,6 +162,8 @@
                           [parent frame]
                           ))
 
+  (define mandelbrot (calculate-mandelbrot canvas-height canvas-width))
+
   (new canvas%
        [parent main-panel]
        [min-width canvas-width]
@@ -145,7 +174,7 @@
           (send dc set-background (make-color 255 255 255))
           (send dc clear)
           (send dc draw-line 0 0 0 1)
-          (draw-mandelbrot dc canvas-width canvas-height)
+          (draw-points dc mandelbrot)
           )])
 
   (define bottom-status (new horizontal-panel%
