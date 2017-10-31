@@ -16,8 +16,11 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+(require profile)
+(require profile/render-text)
 (require racket/gui/base)
 (require racket/draw)
+(require racket/pretty)
 
 (provide main)
 
@@ -83,25 +86,25 @@
 
 (define (calc-color2 iter c)
   (define color-scheme
-    (list '(66 30 15)
-          '(25 7 26)
-          '(9 1 47)
-          '(4 4 73)
-          '(0 7 100)
-          '(12 44 138)
-          '(24 82 177)
-          '(57 125 209)
-          '(134 181 229)
-          '(211 236 248)
-          '(241 233 191)
-          '(248 201 95)
-          '(255 170 0)
-          '(204 128 0)
-          '(153 87 0)
-          '(106 52 3)))
+    (list '(255 66 30 15)
+          '(255 25 7 26)
+          '(255 9 1 47)
+          '(255 4 4 73)
+          '(255 0 7 100)
+          '(255 12 44 138)
+          '(255 24 82 177)
+          '(255 57 125 209)
+          '(255 134 181 229)
+          '(255 211 236 248)
+          '(255 241 233 191)
+          '(255 248 201 95)
+          '(255 255 170 0)
+          '(255 204 128 0)
+          '(255 153 87 0)
+          '(255 106 52 3)))
   (let* ((hue (smooth-color iter c))
          (idx (modulo (exact-floor hue) 16)))
-    (apply make-color (list-ref color-scheme idx))))
+    (list-ref color-scheme idx)))
 
 ;; point
 (define (create-point x y color)
@@ -116,39 +119,23 @@
 (define (get-color p)
   (caddr p))
 
-;; return list of mandelbrot
 (define (calculate-mandelbrot width height)
-  (define (draw-line x y)
-    (if (> x width)
+  (define (calc-line x y)
+    (if (>= x width)
         '()
-        (cons
+        (append
          (let ((pt (check-if-mandelbrot x y)))
-           (create-point x y (if (eq? pt #f)
-                                 "black"
-                                 (calc-color2 (car pt) (cadr pt)))))
-         (draw-line (+ x 1) y))))
-  (define (draw-lines y)
-    (if (> y height)
+           (if (eq? pt #f)
+               '(255 0 0 0)
+               (calc-color2 (car pt) (cadr pt))))
+         (calc-line (+ x 1) y))))
+  (define (calc-lines y)
+    (if (>= y height)
         '()
-        (cons
-          (draw-line 0 y)
-          (draw-lines (+ y 1)))))
-  (draw-lines 0))
-
-(define (draw-points dc lines)
-  (define (draw-line line)
-    (when (not (null? line))
-          (let ((color (get-color (car line)))
-                (x (get-x (car line)))
-                (y (get-y (car line))))
-            (send dc set-pen color 1 'solid)
-            (send dc draw-line x y (add1 x) y)
-            (draw-line (cdr line)))))
-  (define (draw-lines lines)
-    (when (not (null? lines))
-          (begin (draw-line (car lines))
-                 (draw-lines (cdr lines)))))
-  (draw-lines lines))
+        (append
+         (calc-line 0 y)
+         (calc-lines (+ y 1)))))
+  (apply bytes (calc-lines 0)))
 
 ;; GUI
 
@@ -159,10 +146,13 @@
                      [width (+ canvas-width 100)]
                      [height (+ canvas-height 100)]))
   (define main-panel (new vertical-panel%
-                          [parent frame]
-                          ))
+                          [parent frame]))
 
-  (define mandelbrot (calculate-mandelbrot canvas-height canvas-width))
+  (define mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
+  ;; (define mandelbrot-pixels (profile-thunk (lambda () (calculate-mandelbrot canvas-height canvas-width))))
+  (define bitmap (make-bitmap canvas-width canvas-height))
+  (send bitmap set-argb-pixels 0 0 canvas-width canvas-height mandelbrot-pixels #f #f)
+
 
   (new canvas%
        [parent main-panel]
@@ -173,9 +163,7 @@
         (lambda (canvas dc)
           (send dc set-background (make-color 255 255 255))
           (send dc clear)
-          (send dc draw-line 0 0 0 1)
-          (draw-points dc mandelbrot)
-          )])
+          (send dc draw-bitmap bitmap 0 0))])
 
   (define bottom-status (new horizontal-panel%
                              [parent main-panel]
