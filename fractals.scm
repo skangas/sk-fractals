@@ -188,15 +188,26 @@
 
   (define menu-bar (new menu-bar%
                         (parent frame)))
-  (new menu%
-       (label "&File")
-       (parent menu-bar))
-  (new menu%
-       (label "&Edit")
-       (parent menu-bar))
-  (new menu%
-       (label "&Help")
-       (parent menu-bar))
+  (define file-menu (new menu%
+                         (label "&File")
+                         (parent menu-bar)))
+  (new menu-item%
+       [label "&Settings"]
+       [parent file-menu]
+       [callback (lambda (_ b) b)])
+  (new separator-menu-item%
+       [parent file-menu])
+  (new menu-item%
+       [label "&Exit"]
+       [parent file-menu]
+       [callback (lambda (_ ev) (exit 0))])
+  (define help-menu (new menu%
+                         (label "&Help")
+                         (parent menu-bar)))
+  (new menu-item%
+       [label "&About"]
+       [parent help-menu]
+       [callback (lambda (_ b) b)])
 
   (send frame show #t))
 
