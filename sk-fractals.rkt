@@ -108,19 +108,6 @@
          (idx (modulo (exact-floor hue) 16)))
     (list-ref color-scheme idx)))
 
-;; point
-(define (create-point x y color)
-  (list x y color))
-
-(define (get-x p)
-  (car p))
-
-(define (get-y p)
-  (cadr p))
-
-(define (get-color p)
-  (caddr p))
-
 (define (calculate-mandelbrot width height)
   (define (calc-line x y)
     (if (>= x width)
@@ -142,7 +129,6 @@
 ;; GUI
 
 (define (main)
-
   (define frame (new frame%
                      [label "SK Fractals"]))
   (define main-panel (new horizontal-panel%
@@ -207,6 +193,7 @@
        [label (string-append "SK Fractals v" SK-FRACTALS-VERSION)]
        [auto-resize #t])
 
+  ;; Menu bar
   (define menu-bar (new menu-bar%
                         (parent frame)))
   (define file-menu (new menu%
