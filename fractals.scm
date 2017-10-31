@@ -142,20 +142,19 @@
 (define (main)
 
   (define frame (new frame%
-                     [label "Float"]
-                     [width (+ canvas-width 100)]
-                     [height (+ canvas-height 100)]))
-  (define main-panel (new vertical-panel%
+                     [label "SK Fractals"]))
+  (define main-panel (new horizontal-panel%
                           [parent frame]))
+  (define left-panel (new vertical-panel%
+                          [parent main-panel]))
 
+  ;; Main canvas
   (define mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
   ;; (define mandelbrot-pixels (profile-thunk (lambda () (calculate-mandelbrot canvas-height canvas-width))))
   (define bitmap (make-bitmap canvas-width canvas-height))
   (send bitmap set-argb-pixels 0 0 canvas-width canvas-height mandelbrot-pixels #f #f)
-
-
   (new canvas%
-       [parent main-panel]
+       [parent left-panel]
        [min-width canvas-width]
        [min-height canvas-height]
        [style '(border)]
@@ -165,14 +164,46 @@
           (send dc clear)
           (send dc draw-bitmap bitmap 0 0))])
 
-  (define bottom-status (new horizontal-panel%
-                             [parent main-panel]
-                             [min-height 10]))
+  ;; Right info
+  (define right-panel (new vertical-panel%
+                           [parent main-panel]
+                           [min-height canvas-height]
+                           [min-width 200]))
+  (define location-box (new group-box-panel%
+                          [parent right-panel]
+                          [label "Location"]))
+  (new message% [parent location-box]
+       [label (string-append "Real min: " (number->string r-min))]
+       [auto-resize #t])
+  (new message% [parent location-box]
+       [label (string-append "Real max: " (number->string r-max))]
+       [auto-resize #t])
+  (new message% [parent location-box]
+       [label (string-append "Imaginary min: " (number->string i-min))]
+       [auto-resize #t])
+  (new message% [parent location-box]
+       [label (string-append "Imaginary max: " (number->string i-max))]
+       [auto-resize #t])
+  (define info-box (new group-box-panel%
+                          [parent right-panel]
+                          [label "Calculation"]))
+  (new message% [parent info-box]
+       [label (string-append "Iterations: " (number->string max-iterations))]
+       [auto-resize #t])
+  (new message% [parent info-box]
+       [label (string-append "Height: " (number->string canvas-height))]
+       [auto-resize #t])
+  (new message% [parent info-box]
+       [label (string-append "Width: " (number->string canvas-width))]
+       [auto-resize #t])
 
+  ;; Bottom status
+  (define bottom-status (new horizontal-panel%
+                             [parent left-panel]
+                             [min-height 10]))
   (new message% [parent bottom-status]
        [label "Stefan's Mandelbrot v0.0.1alpha-dev"]
        [auto-resize #t])
-
 
   (define menu-bar (new menu-bar%
                         (parent frame)))
