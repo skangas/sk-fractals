@@ -1,4 +1,19 @@
-#+TITLE: SK Fractals
+* SK Fractals
 
-This is some code I wrote to produce a Mandelbrot fractal using Racket
-(formerly known as PLT Scheme).
+SK Fractals produces a Mandelbrot fractal using Racket (formerly known as PLT
+Scheme).
+
+This was mainly written to learn more about fractals and have fun.
+
+** Screenshot
+
+[[doc/screenshot.png]]
+
+** Contact
+
+You can find the latest version of SK Fractals here:
+
+http://www.github.com/skangas/sk-fractals
+
+Bug reports, comments, and suggestions are welcome! Send them to Stefan Kangas
+<stefankangas@gmail.com> or report them on GitHub.
