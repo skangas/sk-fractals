@@ -35,6 +35,8 @@
 
 (define max-iterations 200)
 
+(define SK-FRACTALS-VERSION "0.0.2-dev")
+
 ;; HSV color space operations
 
 (provide
@@ -202,7 +204,7 @@
                              [parent left-panel]
                              [min-height 10]))
   (new message% [parent bottom-status]
-       [label "Stefan's Mandelbrot v0.0.1alpha-dev"]
+       [label (string-append "SK Fractals v" SK-FRACTALS-VERSION)]
        [auto-resize #t])
 
   (define menu-bar (new menu-bar%
