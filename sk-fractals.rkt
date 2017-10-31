@@ -24,17 +24,17 @@
 
 (provide main)
 
-(define r-min -1.5)
-(define r-max 0.5)
-
-(define i-min 0-1.0i)
-(define i-max 0+1.0i)
-
 (define canvas-height 500)
 (define canvas-width 500)
 
 (define max-iterations 200)
 
+(define REAL-MIN -2.0)
+(define REAL-MAX 2.0)
+(define REAL-DIFF (- REAL-MAX REAL-MIN))
+(define IMAG-MIN 0-2.0i)
+(define IMAG-MAX 0+2.0i)
+(define IMAG-DIFF (- IMAG-MAX IMAG-MIN))
 (define SK-FRACTALS-VERSION "0.0.2-dev")
 
 ;; HSV color space operations
@@ -64,10 +64,30 @@
   (define num-divides (/ n1 n2))
   (- n1 (* (floor num-divides) n2)))
 
+;; Handle zoom
+
+;; (define point -0.63+0.2i)
+;; (define zoom 50.0)
+
+(define point 0.0+0.0i)
+(define zoom 1.0)
+
+(define (r-min)
+  (- point (/ (/ REAL-DIFF zoom) 2)))
+
+(define (r-max)
+  (+ point (/ (/ REAL-DIFF zoom) 2)))
+
+(define (i-min)
+  (- point (/ (/ IMAG-DIFF zoom) 2)))
+
+(define (i-max)
+  (+ point (/ (/ IMAG-DIFF zoom) 2)))
+
 ;; Mandelbrot
 (define (point-to-value x y)
-  (+ (+ r-min (* (/ (- r-max r-min) canvas-width) x))
-     (+ i-min (* (/ (- i-max i-min) canvas-height) y))))
+  (+ (+ (r-min) (* (/ (- (r-max) (r-min)) canvas-width) x))
+     (+ (i-min) (* (/ (- (i-max) (i-min)) canvas-height) y))))
 
 (define (check-if-mandelbrot x y)
   (define (checker x c iterate)
@@ -161,16 +181,16 @@
                           [parent right-panel]
                           [label "Location"]))
   (new message% [parent location-box]
-       [label (string-append "Real min: " (number->string r-min))]
+       [label (string-append "Real min: " (number->string (r-min)))]
        [auto-resize #t])
   (new message% [parent location-box]
-       [label (string-append "Real max: " (number->string r-max))]
+       [label (string-append "Real max: " (number->string (r-max)))]
        [auto-resize #t])
   (new message% [parent location-box]
-       [label (string-append "Imaginary min: " (number->string i-min))]
+       [label (string-append "Imaginary min: " (number->string (i-min)))]
        [auto-resize #t])
   (new message% [parent location-box]
-       [label (string-append "Imaginary max: " (number->string i-max))]
+       [label (string-append "Imaginary max: " (number->string (i-max)))]
        [auto-resize #t])
   (define info-box (new group-box-panel%
                           [parent right-panel]
