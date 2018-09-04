@@ -241,3 +241,4 @@
 
 ;; TODO: Parallelism with futures
 ;; https://docs.racket-lang.org/guide/parallelism.html
+(main)
