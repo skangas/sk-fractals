@@ -21,11 +21,12 @@
 (require racket/gui/base)
 (require racket/draw)
 (require racket/pretty)
+(require racket/unsafe/ops)
 
 (provide main)
 
-(define canvas-height 500)
-(define canvas-width 500)
+(define canvas-height 1000)
+(define canvas-width 1000)
 
 (define max-iterations 200)
 
@@ -66,11 +67,12 @@
 
 ;; Handle zoom
 
-;; (define point -0.63+0.2i)
-;; (define zoom 50.0)
+(define new-point 0)
+(define point -0.63+0.19i)
+(define zoom 61.0)
 
-(define point 0.0+0.0i)
-(define zoom 1.0)
+;; (define point 0.0+0.0i)
+;; (define zoom 1.0)
 
 (define (r-min)
   (- point (/ (/ REAL-DIFF zoom) 2)))
@@ -85,17 +87,19 @@
   (+ point (/ (/ IMAG-DIFF zoom) 2)))
 
 ;; Mandelbrot
-(define (point-to-value x y)
+(define (point-to-complex x y)
   (+ (+ (r-min) (* (/ (- (r-max) (r-min)) canvas-width) x))
      (+ (i-min) (* (/ (- (i-max) (i-min)) canvas-height) y))))
 
+;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
+;; (a+bi)(a+bi) = (a^2−b^2) + (ab+b^2)i
 (define (check-if-mandelbrot x y)
   (define (checker x c iterate)
    (if (or (zero? iterate) (> (magnitude x) 4.0))
        (and (> (magnitude x) 2.0)
             (list iterate x))
        (checker (+ (* x x) c) c (- iterate 1))))
-  (checker 0 (point-to-value x y) max-iterations))
+  (checker 0.0 (point-to-complex x y) max-iterations))
 
 (define (smooth-color iter c)
   (let* ((zn (magnitude c))
@@ -136,32 +140,65 @@
          (let ((pt (check-if-mandelbrot x y)))
            (if (eq? pt #f)
                '(255 0 0 0)
-               (calc-color2 (car pt) (cadr pt))))
-         (calc-line (+ x 1) y))))
+               (calc-color2 (unsafe-car pt) (unsafe-car (unsafe-cdr pt)))))
+         (calc-line (+ x 1.0) y))))
   (define (calc-lines y)
     (if (>= y height)
         '()
         (append
-         (calc-line 0 y)
-         (calc-lines (+ y 1)))))
-  (apply bytes (calc-lines 0)))
+         (calc-line 0.0 y)
+         (calc-lines (+ y 1.0)))))
+  (apply bytes (calc-lines 0.0)))
 
 ;; GUI
 
-(define (main)
-  (define frame (new frame%
-                     [label "SK Fractals"]))
-  (define main-panel (new horizontal-panel%
-                          [parent frame]))
-  (define left-panel (new vertical-panel%
-                          [parent main-panel]))
+(define frame (new frame%
+                   [label "SK Fractals"]))
+(define main-panel (new horizontal-panel%
+                        [parent frame]))
+(define left-panel (new vertical-panel%
+                        [parent main-panel]))
 
-  ;; Main canvas
+;; Bottom status
+(define bottom-status (new horizontal-panel%
+                           [parent left-panel]
+                           [min-height 10]))
+;; (new message% [parent bottom-status]
+;;      [label (string-append "SK Fractals v" SK-FRACTALS-VERSION)]
+;;      [auto-resize #t])
+(define status-msg (new message% [parent bottom-status]
+                        [label "..."]
+                        [auto-resize #t]))
+
+(define mandel-canvas%
+  (class canvas%
+         (define point zoom)
+         (define/override (on-event event)
+           (cond ((eq? (send event get-event-type) 'motion)
+                  (let ((x (send event get-x))
+                        (y (send event get-y)))
+                    x
+                    ;; (send status-msg set-label (number->string (point-to-complex x y)))
+                    ))
+                 ((eq? (send event get-event-type) 'left-up)
+                  (let ((p (point-to-complex (send event get-x) (send event get-y))))
+                    (set! new-point p)))))
+         ;; (define/override (on-char event)
+         ;;   (send status-msg set-label "Canvas keyboard"))
+         (super-new)))
+
+(define (get-mandelbrot)
   (define mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
   ;; (define mandelbrot-pixels (profile-thunk (lambda () (calculate-mandelbrot canvas-height canvas-width))))
   (define bitmap (make-bitmap canvas-width canvas-height))
   (send bitmap set-argb-pixels 0 0 canvas-width canvas-height mandelbrot-pixels #f #f)
-  (new canvas%
+  bitmap)
+
+(define (main)
+  ;; Main canvas
+  (define bitmap (get-mandelbrot))
+
+  (new mandel-canvas%
        [parent left-panel]
        [min-width canvas-width]
        [min-height canvas-height]
@@ -204,14 +241,20 @@
   (new message% [parent info-box]
        [label (string-append "Width: " (number->string canvas-width))]
        [auto-resize #t])
-
-  ;; Bottom status
-  (define bottom-status (new horizontal-panel%
-                             [parent left-panel]
-                             [min-height 10]))
-  (new message% [parent bottom-status]
-       [label (string-append "SK Fractals v" SK-FRACTALS-VERSION)]
-       [auto-resize #t])
+  (new text-field%
+       (label "Zoom")
+       (parent info-box)
+       (init-value (number->string zoom))
+       (callback (lambda (f e)
+                   (set! zoom (string->number (send f get-value))))))
+  (define calculate-button (new button%
+                      (parent info-box)
+                      (label "Calculate")
+                      (callback (lambda (f e)
+                                  (set! bitmap (get-mandelbrot))))))
+  (define reset-button (new button%
+                      (parent info-box)
+                      (label "Reset")))
 
   ;; Menu bar
   (define menu-bar (new menu-bar%
