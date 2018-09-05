@@ -93,7 +93,7 @@
      (+ (i-min) (* (/ (- (i-max) (i-min)) canvas-height) y))))
 
 ;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
-;; (a+bi)(a+bi) = (a^2−b^2) + (ab+b^2)i
+;; (a+bi)(a+bi) = (a^2−b^2) + (2ab)i
 (define (mandelbrot iterations x y)
   (define (checker x c iterate)
    (if (or (zero? iterate) (> (magnitude x) 4.0))
