@@ -22,13 +22,13 @@
 (require racket/draw)
 (require racket/pretty)
 (require racket/unsafe/ops)
+(require racket/format)
 
 (provide main)
 
-(define canvas-height 1000)
-(define canvas-width 1000)
-
-(define max-iterations 200)
+(define canvas-height 500)
+(define canvas-width 500)
+(define max-iterations 1000)
 
 (define REAL-MIN -2.0)
 (define REAL-MAX 2.0)
@@ -69,7 +69,8 @@
 
 (define new-point 0)
 (define point -0.63+0.19i)
-(define zoom 61.0)
+(define zoom 100.0)
+;; (define zoom 61.0)
 
 ;; (define point 0.0+0.0i)
 ;; (define zoom 1.0)
@@ -93,13 +94,13 @@
 
 ;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
 ;; (a+bi)(a+bi) = (a^2−b^2) + (ab+b^2)i
-(define (check-if-mandelbrot x y)
+(define (mandelbrot iterations x y)
   (define (checker x c iterate)
    (if (or (zero? iterate) (> (magnitude x) 4.0))
        (and (> (magnitude x) 2.0)
             (list iterate x))
        (checker (+ (* x x) c) c (- iterate 1))))
-  (checker 0.0 (point-to-complex x y) max-iterations))
+  (checker 0.0 (point-to-complex x y) iterations))
 
 (define (smooth-color iter c)
   (let* ((zn (magnitude c))
@@ -137,7 +138,7 @@
     (if (>= x width)
         '()
         (append
-         (let ((pt (check-if-mandelbrot x y)))
+         (let ((pt (mandelbrot max-iterations x y)))
            (if (eq? pt #f)
                '(255 0 0 0)
                (calc-color2 (unsafe-car pt) (unsafe-car (unsafe-cdr pt)))))
@@ -154,64 +155,102 @@
 
 (define frame (new frame%
                    [label "SK Fractals"]))
-(define main-panel (new horizontal-panel%
+(define main-panel (new vertical-panel%
                         [parent frame]))
-(define left-panel (new vertical-panel%
+(define middle-panel (new horizontal-panel%
                         [parent main-panel]))
+(define left-panel (new vertical-panel%
+                        [parent middle-panel]))
+(define canvas '())
 
 ;; Bottom status
-(define bottom-status (new horizontal-panel%
-                           [parent left-panel]
-                           [min-height 10]))
+(define bottom-status #f)
 ;; (new message% [parent bottom-status]
 ;;      [label (string-append "SK Fractals v" SK-FRACTALS-VERSION)]
 ;;      [auto-resize #t])
-(define status-msg (new message% [parent bottom-status]
-                        [label "..."]
-                        [auto-resize #t]))
+(define status-msg #f)
+
+(define mouse-point 0.0)
+;; (define mouse-point2 0.0)
+(define dragging #f)
+(define drag-point 0.0)
+(define drag-point2 0.0)
+(define drag-point-x 0)
+(define drag-point-y 0)
+(define bitmap #f)
+
+;; Pens
+(define no-pen (make-object pen% "BLACK" 1 'transparent))
+(define no-brush (make-object brush% "BLACK" 'transparent))
+(define black-pen (make-object pen% "BLACK" 1 'solid))
+
+(define (draw-square-on bmp x y z w)
+  (define dc (new bitmap-dc% [bitmap bmp]))
+  (send dc set-pen black-pen)
+  (send dc set-brush no-brush)
+  (send dc draw-rectangle x y (- z x) (- w y)))
+
+;; XX
 
 (define mandel-canvas%
   (class canvas%
-         (define point zoom)
+         ;; (define point zoom)
          (define/override (on-event event)
            (cond ((eq? (send event get-event-type) 'motion)
                   (let ((x (send event get-x))
                         (y (send event get-y)))
-                    x
-                    ;; (send status-msg set-label (number->string (point-to-complex x y)))
-                    ))
+                    (set! mouse-point (point-to-complex x y))
+                    (and dragging
+                         (begin (set! bitmap (get-mandelbrot))
+                                (draw-square-on bitmap drag-point-x drag-point-y x y)
+                                (send canvas refresh-now)))
+                    (send status-msg set-label
+                          (if dragging
+                              (string-append "Dragging at: " (number->string mouse-point))
+                              (string-append "Cursor location: " (number->string mouse-point))))))
+                 ((eq? (send event get-event-type) 'left-down)
+                  (let* ((x (send event get-x))
+                         (y (send event get-y))
+                         (p (point-to-complex x y)))
+                    (set! dragging #t)
+                    (set! drag-point p)
+                    (set! drag-point-x x)
+                    (set! drag-point-y y)
+                    (send status-msg set-label "foo")))
                  ((eq? (send event get-event-type) 'left-up)
                   (let ((p (point-to-complex (send event get-x) (send event get-y))))
-                    (set! new-point p)))))
+                    (set! dragging #f)
+                    (set! drag-point2 p)
+                    (send status-msg set-label "bar")
+                    (set! drag-point #f)))))
          ;; (define/override (on-char event)
          ;;   (send status-msg set-label "Canvas keyboard"))
          (super-new)))
 
+;; Calculate Mandelbrot
+(define mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
 (define (get-mandelbrot)
-  (define mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
   ;; (define mandelbrot-pixels (profile-thunk (lambda () (calculate-mandelbrot canvas-height canvas-width))))
   (define bitmap (make-bitmap canvas-width canvas-height))
   (send bitmap set-argb-pixels 0 0 canvas-width canvas-height mandelbrot-pixels #f #f)
   bitmap)
 
 (define (main)
-  ;; Main canvas
-  (define bitmap (get-mandelbrot))
-
-  (new mandel-canvas%
-       [parent left-panel]
-       [min-width canvas-width]
-       [min-height canvas-height]
-       [style '(border)]
-       [paint-callback
-        (lambda (canvas dc)
-          (send dc set-background (make-color 255 255 255))
-          (send dc clear)
-          (send dc draw-bitmap bitmap 0 0))])
+  (set! bitmap (get-mandelbrot))
+  (set! canvas (new mandel-canvas%
+        [parent left-panel]
+        [min-width canvas-width]
+        [min-height canvas-height]
+        [style '(border)]
+        [paint-callback
+         (lambda (canvas dc)
+           (send dc set-background (make-color 255 255 255))
+           (send dc clear)
+           (send dc draw-bitmap bitmap 0 0))]))
 
   ;; Right info
   (define right-panel (new vertical-panel%
-                           [parent main-panel]
+                           [parent middle-panel]
                            [min-height canvas-height]
                            [min-width 200]))
   (define location-box (new group-box-panel%
@@ -251,10 +290,19 @@
                       (parent info-box)
                       (label "Calculate")
                       (callback (lambda (f e)
+                                  (set! mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
                                   (set! bitmap (get-mandelbrot))))))
   (define reset-button (new button%
                       (parent info-box)
                       (label "Reset")))
+
+  ;; Create status bar
+  (set! bottom-status (new horizontal-panel%
+                           [parent main-panel]
+                           [min-height 10]))
+  (set! status-msg (new message% [parent bottom-status]
+                        [label "..."]
+        [auto-resize #t]))
 
   ;; Menu bar
   (define menu-bar (new menu-bar%
