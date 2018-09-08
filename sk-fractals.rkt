@@ -24,63 +24,59 @@
 (require racket/unsafe/ops)
 (require racket/format)
 (require racket/flonum)
+(require racket/fixnum)
+(require future-visualizer)
 
-(provide main)
-
-(define canvas-height 1000)
-(define canvas-width 1000)
+(define canvas-height 800)
+(define canvas-width 800)
 (define max-iterations 500)
 
+(define new-point 0)
+(define point-r -0.09061328)
+(define point-c 0.83210332)
+(define zoom 1000.0)
 
 (define SK-FRACTALS-VERSION "0.0.2-dev")
 
 ;; HSV color space operations
 
-(provide
- (contract-out [make-color/hsv
-                (-> real? (real-in 0 1) (real-in 0 1) (is-a?/c color%))]))
+;; (provide
+;;  (contract-out [make-color/hsv
+;;                 (-> real? (real-in 0 1) (real-in 0 1) (is-a?/c color%))]))
 
 ;; make a color object from HSV values
 (define (make-color/hsv hue saturation value)
-  (define chroma (* saturation value))
-  (define hue* (/ (remainder* hue (* 2 pi)) (/ pi 3)))
-  (define X (* chroma (- 1 (abs (- (remainder* hue* 2) 1)))))
+  (define chroma (fl* saturation value))
+  (define hue* (fl/ (remainder* hue (fl* 2 pi)) (fl/ pi 3)))
+  (define X (fl* chroma (fl- 1.0 (flabs (fl- (remainder* hue* 2.0) 1.0)))))
   (define-values (r1 g1 b1)
-    (cond [(and (<= 0 hue*) (< hue* 1)) (values chroma X 0)]
-          [(and (<= 1 hue*) (< hue* 2)) (values X chroma 0)]
-          [(and (<= 2 hue*) (< hue* 3)) (values 0 chroma X)]
-          [(and (<= 3 hue*) (< hue* 4)) (values 0 X chroma)]
-          [(and (<= 4 hue*) (< hue* 5)) (values X 0 chroma)]
-          [(and (<= 5 hue*) (< hue* 6)) (values chroma 0 X)]))
-  (define m (- value chroma))
-  (apply make-color (map (λ (x) (exact-round (* 255 (+ x m))))
+    (cond [(and (fl<= 0 hue*) (fl< hue* 1.0)) (values chroma X 0)]
+          [(and (fl<= 1 hue*) (fl< hue* 2.0)) (values X chroma 0)]
+          [(and (fl<= 2 hue*) (fl< hue* 3.0)) (values 0 chroma X)]
+          [(and (fl<= 3 hue*) (fl< hue* 4.0)) (values 0 X chroma)]
+          [(and (fl<= 4 hue*) (fl< hue* 5.0)) (values X 0 chroma)]
+          [(and (fl<= 5 hue*) (fl< hue* 6.0)) (values chroma 0 X)]))
+  (define m (fl- value chroma))
+  (apply make-color (map (λ (x) (exact-round (fl* 255.0 (fl+ x m))))
                          (list r1 g1 b1))))
 
 ;; general remainder
 (define (remainder* n1 n2)
-  (define num-divides (/ n1 n2))
-  (- n1 (* (floor num-divides) n2)))
+  (define num-divides (fl/ n1 n2))
+  (fl- n1 (fl* (flfloor num-divides) n2)))
 
 ;; Handle zoom
 
-(define new-point 0)
-;; (define point-r -0.63)
-;; (define point-c 0.19)
-;; (define zoom 100.0)
-(define point-r -0.66)
-(define point-c 0.41)
-(define zoom 1000.0)
-
-
-(define (r-min) (- point-r (/ 2.0 zoom)))
-(define (r-max) (+ point-r (/ 2.0 zoom)))
-(define (i-min) (- point-c (/ 2.0 zoom)))
-(define (i-max) (+ point-c (/ 2.0 zoom)))
+(define (r-min) (fl- point-r (fl/ 2.0 zoom)))
+(define (r-max) (fl+ point-r (fl/ 2.0 zoom)))
+(define (i-min) (fl- point-c (fl/ 2.0 zoom)))
+(define (i-max) (fl+ point-c (fl/ 2.0 zoom)))
 
 ;; Mandelbrot
 (define (point-to-complex x y)
-  (list (+ (r-min) (* (/ (- (r-max) (r-min)) canvas-width) x))
-        (+ (i-min) (* (/ (- (i-max) (i-min)) canvas-height) y))))
+  (list (fl+ (r-min) (fl* (fl/ (fl- (r-max) (r-min)) (->fl canvas-width)) (->fl x)))
+        (fl+ (i-min) (fl* (fl/ (fl- (i-max) (i-min)) (->fl canvas-height)) (->fl y)))))
+
 (define get-real car)
 (define get-imag cadr)
 (define (get-point-string p)
@@ -91,12 +87,12 @@
 ;; (a+bi)(a+bi) = (a^2−b^2) + (2ab)i
 (define (mandelbrot iterations x y)
   (define (checker r i cr ci n)
-    (cond ((>= (+ (* r r) (* i i)) 4.0)
-           (list n (make-rectangular r i)))
+    (cond ((>= (fl+ (fl* r r) (fl* i i)) 4.0)
+           (list n (list r i)))
           ((zero? n) #t)
           (else
-           (let ((r-new (+ (- (* r r) (* i i)) cr))
-                 (i-new (+ (* 2.0 r i) ci)))
+           (let ((r-new (fl+ (fl- (fl* r r) (fl* i i)) cr))
+                 (i-new (fl+ (fl* 2.0 (fl* r i)) ci)))
              (checker r-new i-new cr ci (- n 1))))))
   (let* ((c (point-to-complex x y))
          (cr (get-real c))
@@ -104,8 +100,9 @@
     (checker 0.0 0.0 cr ci iterations)))
 
 (define (smooth-color iter c)
-  (let* ((zn (magnitude c))
-         (hue (- (+ 1.0 iter) (/ (log (log zn)) (log 2.0)))))
+  ;; magnitude = sqrt(r^2 + i^2) [pythagora's theorem]
+  (let* ((zn (flsqrt (fl+ (fl* (get-real c) (get-real c)) (fl* (get-imag c) (get-imag c)))))
+         (hue (fl- (fl+ 1.0 (->fl iter)) (fl/ (fllog (fllog zn)) (fllog 2.0)))))
     hue))
 
 (define (calc-color iter c)
@@ -131,26 +128,17 @@
           '(255 153 87 0)
           '(255 106 52 3)))
   (let* ((hue (smooth-color iter c))
-         (idx (modulo (exact-floor hue) 16)))
+         (idx (fxmodulo (fl->fx (flfloor hue)) 16)))
     (list-ref color-scheme idx)))
 
 (define (calculate-mandelbrot width height)
-  (define (calc-line x y)
-    (if (>= x width)
-        '()
-        (append
-         (let ((pt (mandelbrot max-iterations x y)))
-           (if (eq? pt #t)
-               '(255 0 0 0)
-               (calc-color2 (unsafe-car pt) (unsafe-car (unsafe-cdr pt)))))
-         (calc-line (+ x 1.0) y))))
-  (define (calc-lines y)
-    (if (>= y height)
-        '()
-        (append
-         (calc-line 0.0 y)
-         (calc-lines (+ y 1.0)))))
-  (apply bytes (calc-lines 0.0)))
+  (foldr append '()
+   (for*/list ((y height)
+               (x width))
+     (let ((pt (mandelbrot max-iterations x y)))
+       (if (eq? pt #t)
+           '(255 0 0 0)
+           (calc-color2 (unsafe-car pt) (unsafe-car (unsafe-cdr pt))))))))
 
 ;; GUI
 
@@ -229,9 +217,9 @@
          (super-new)))
 
 ;; Calculate Mandelbrot
-(define mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
+(define mandelbrot-pixels (profile-thunk (lambda () (apply bytes (calculate-mandelbrot canvas-height canvas-width)))))
+;; (define mandelbrot-pixels (apply bytes (calculate-mandelbrot canvas-height canvas-width)))
 (define (get-mandelbrot)
-  ;; (define mandelbrot-pixels (profile-thunk (lambda () (calculate-mandelbrot canvas-height canvas-width))))
   (define bitmap (make-bitmap canvas-width canvas-height))
   (send bitmap set-argb-pixels 0 0 canvas-width canvas-height mandelbrot-pixels #f #f)
   bitmap)
@@ -291,7 +279,7 @@
                       (parent info-box)
                       (label "Calculate")
                       (callback (lambda (f e)
-                                  (set! mandelbrot-pixels (calculate-mandelbrot canvas-height canvas-width))
+                                  (set! mandelbrot-pixels (apply bytes (calculate-mandelbrot canvas-height canvas-width)))
                                   (set! bitmap (get-mandelbrot))))))
   (define reset-button (new button%
                       (parent info-box)
@@ -333,4 +321,5 @@
 
 ;; TODO: Parallelism with futures
 ;; https://docs.racket-lang.org/guide/parallelism.html
+
 (main)
