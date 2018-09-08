@@ -23,19 +23,15 @@
 (require racket/pretty)
 (require racket/unsafe/ops)
 (require racket/format)
+(require racket/flonum)
 
 (provide main)
 
-(define canvas-height 500)
-(define canvas-width 500)
-(define max-iterations 1000)
+(define canvas-height 1000)
+(define canvas-width 1000)
+(define max-iterations 500)
 
-(define REAL-MIN -2.0)
-(define REAL-MAX 2.0)
-(define REAL-DIFF (- REAL-MAX REAL-MIN))
-(define IMAG-MIN 0-2.0i)
-(define IMAG-MAX 0+2.0i)
-(define IMAG-DIFF (- IMAG-MAX IMAG-MIN))
+
 (define SK-FRACTALS-VERSION "0.0.2-dev")
 
 ;; HSV color space operations
@@ -68,39 +64,44 @@
 ;; Handle zoom
 
 (define new-point 0)
-(define point -0.63+0.19i)
-(define zoom 100.0)
-;; (define zoom 61.0)
+;; (define point-r -0.63)
+;; (define point-c 0.19)
+;; (define zoom 100.0)
+(define point-r -0.66)
+(define point-c 0.41)
+(define zoom 1000.0)
 
-;; (define point 0.0+0.0i)
-;; (define zoom 1.0)
 
-(define (r-min)
-  (- point (/ (/ REAL-DIFF zoom) 2)))
-
-(define (r-max)
-  (+ point (/ (/ REAL-DIFF zoom) 2)))
-
-(define (i-min)
-  (- point (/ (/ IMAG-DIFF zoom) 2)))
-
-(define (i-max)
-  (+ point (/ (/ IMAG-DIFF zoom) 2)))
+(define (r-min) (- point-r (/ 2.0 zoom)))
+(define (r-max) (+ point-r (/ 2.0 zoom)))
+(define (i-min) (- point-c (/ 2.0 zoom)))
+(define (i-max) (+ point-c (/ 2.0 zoom)))
 
 ;; Mandelbrot
 (define (point-to-complex x y)
-  (+ (+ (r-min) (* (/ (- (r-max) (r-min)) canvas-width) x))
-     (+ (i-min) (* (/ (- (i-max) (i-min)) canvas-height) y))))
+  (list (+ (r-min) (* (/ (- (r-max) (r-min)) canvas-width) x))
+        (+ (i-min) (* (/ (- (i-max) (i-min)) canvas-height) y))))
+(define get-real car)
+(define get-imag cadr)
+(define (get-point-string p)
+  (string-append (number->string (get-real p)) "+"
+                 (number->string (get-imag p)) "i"))
 
 ;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
 ;; (a+bi)(a+bi) = (a^2−b^2) + (2ab)i
 (define (mandelbrot iterations x y)
-  (define (checker x c iterate)
-   (if (or (zero? iterate) (> (magnitude x) 4.0))
-       (and (> (magnitude x) 2.0)
-            (list iterate x))
-       (checker (+ (* x x) c) c (- iterate 1))))
-  (checker 0.0 (point-to-complex x y) iterations))
+  (define (checker r i cr ci n)
+    (cond ((>= (+ (* r r) (* i i)) 4.0)
+           (list n (make-rectangular r i)))
+          ((zero? n) #t)
+          (else
+           (let ((r-new (+ (- (* r r) (* i i)) cr))
+                 (i-new (+ (* 2.0 r i) ci)))
+             (checker r-new i-new cr ci (- n 1))))))
+  (let* ((c (point-to-complex x y))
+         (cr (get-real c))
+         (ci (get-imag c)))
+    (checker 0.0 0.0 cr ci iterations)))
 
 (define (smooth-color iter c)
   (let* ((zn (magnitude c))
@@ -139,7 +140,7 @@
         '()
         (append
          (let ((pt (mandelbrot max-iterations x y)))
-           (if (eq? pt #f)
+           (if (eq? pt #t)
                '(255 0 0 0)
                (calc-color2 (unsafe-car pt) (unsafe-car (unsafe-cdr pt)))))
          (calc-line (+ x 1.0) y))))
@@ -206,8 +207,8 @@
                                 (send canvas refresh-now)))
                     (send status-msg set-label
                           (if dragging
-                              (string-append "Dragging at: " (number->string mouse-point))
-                              (string-append "Cursor location: " (number->string mouse-point))))))
+                              (string-append "Dragging at: " (get-point-string mouse-point))
+                              (string-append "Cursor location: " (get-point-string mouse-point))))))
                  ((eq? (send event get-event-type) 'left-down)
                   (let* ((x (send event get-x))
                          (y (send event get-y))
