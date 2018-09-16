@@ -37,6 +37,8 @@
 
 (define SK-FRACTALS-VERSION "0.0.2-dev")
 
+(struct complex (r i))
+
 ;; HSV color space operations
 
 ;; (provide
@@ -66,7 +68,7 @@
 
 (define (smooth-color iter c)
   ;; magnitude = sqrt(r^2 + i^2) [pythagora's theorem]
-  (let* ((zn (flsqrt (fl+ (fl* (get-real c) (get-real c)) (fl* (get-imag c) (get-imag c)))))
+  (let* ((zn (flsqrt (fl+ (fl* (complex-r c) (complex-r c)) (fl* (complex-i c) (complex-i c)))))
          (hue (fl- (fl+ 1.0 (->fl iter)) (fl/ (fllog (fllog zn)) (fllog 2.0)))))
     hue))
 
@@ -105,22 +107,20 @@
 
 ;; Mandelbrot
 (define (point-to-complex x y)
-  (list (fl+ (r-min) (fl* (fl/ (fl- (r-max) (r-min)) (->fl canvas-width)) (->fl x)))
-        (fl+ (i-min) (fl* (fl/ (fl- (i-max) (i-min)) (->fl canvas-height)) (->fl y)))))
+  (complex (fl+ (r-min) (fl* (fl/ (fl- (r-max) (r-min)) (->fl canvas-width)) (->fl x)))
+           (fl+ (i-min) (fl* (fl/ (fl- (i-max) (i-min)) (->fl canvas-height)) (->fl y)))))
 
-(define get-real car)
-(define get-imag cadr)
 (define (get-point-string p)
-  (string-append (number->string (get-real p)) "+"
-                 (number->string (get-imag p)) "i"))
+  (string-append (number->string (complex-r p)) "+"
+                 (number->string (complex-i p)) "i"))
 
 ;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
 ;; (a+bi)(a+bi) = (a^2−b^2) + (2ab)i
 (define (mandelbrot iterations x y)
   (let* ((c (point-to-complex x y)))
-    (let next ((r 0.0) (i 0.0) (cr (get-real c)) (ci (get-imag c)) (n iterations))
+    (let next ((r 0.0) (i 0.0) (cr (complex-r c)) (ci (complex-i c)) (n iterations))
       (cond ((>= (fl+ (fl* r r) (fl* i i)) 4.0)
-             (list n (list r i)))
+             (list n (complex r i)))
             ((zero? n) #t)
             (else
              (let ((r-new (fl+ (fl- (fl* r r) (fl* i i)) cr))
