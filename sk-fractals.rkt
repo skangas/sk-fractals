@@ -117,18 +117,15 @@
 ;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
 ;; (a+bi)(a+bi) = (a^2−b^2) + (2ab)i
 (define (mandelbrot iterations x y)
-  (define (checker r i cr ci n)
-    (cond ((>= (fl+ (fl* r r) (fl* i i)) 4.0)
-           (list n (list r i)))
-          ((zero? n) #t)
-          (else
-           (let ((r-new (fl+ (fl- (fl* r r) (fl* i i)) cr))
-                 (i-new (fl+ (fl* 2.0 (fl* r i)) ci)))
-             (checker r-new i-new cr ci (- n 1))))))
-  (let* ((c (point-to-complex x y))
-         (cr (get-real c))
-         (ci (get-imag c)))
-    (checker 0.0 0.0 cr ci iterations)))
+  (let* ((c (point-to-complex x y)))
+    (let next ((r 0.0) (i 0.0) (cr (get-real c)) (ci (get-imag c)) (n iterations))
+      (cond ((>= (fl+ (fl* r r) (fl* i i)) 4.0)
+             (list n (list r i)))
+            ((zero? n) #t)
+            (else
+             (let ((r-new (fl+ (fl- (fl* r r) (fl* i i)) cr))
+                   (i-new (fl+ (fl* 2.0 (fl* r i)) ci)))
+               (next r-new i-new cr ci (fx- n 1))))))))
 
 (define (calculate-mandelbrot width height)
   (foldr append '()
@@ -324,8 +321,5 @@
 
   (send frame show #t)
   (recalculate-canvas null null))
-
-;; TODO: Parallelism with futures
-;; https://docs.racket-lang.org/guide/parallelism.html
 
 (main)
