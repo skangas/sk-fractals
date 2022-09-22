@@ -1,7 +1,7 @@
 #!/usr/bin/racket
 #lang racket
 
-;; Copyright (C) 2017 Stefan Kangas
+;; Copyright (C) 2017-2022 Stefan Kangas
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
