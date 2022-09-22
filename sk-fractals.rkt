@@ -34,7 +34,6 @@
 (define point-r -0.09061328)
 (define point-c 0.83210332)
 (define zoom 10.0)
-
 (define SK-FRACTALS-VERSION "0.0.2-dev")
 
 (struct complex (r i))
@@ -114,8 +113,6 @@
   (string-append (number->string (complex-r p)) "+"
                  (number->string (complex-i p)) "i"))
 
-;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
-;; (a+bi)(a+bi) = (a^2−b^2) + (2ab)i
 (define (mandelbrot iterations x y)
   (let* ((c (point-to-complex x y)))
     (let next ((r 0.0) (i 0.0) (cr (complex-r c)) (ci (complex-i c)) (n iterations))
@@ -123,18 +120,22 @@
              (list n (complex r i)))
             ((zero? n) #t)
             (else
+             ;; (a+bi)(c+di) = (ac−bd) + (ad+bc)i
+             ;; (a+bi)(a+bi) = (a^2−b^2) + (2ab)i
              (let ((r-new (fl+ (fl- (fl* r r) (fl* i i)) cr))
                    (i-new (fl+ (fl* 2.0 (fl* r i)) ci)))
                (next r-new i-new cr ci (fx- n 1))))))))
 
 (define (calculate-mandelbrot width height)
-  (foldr append '()
-   (for*/list ((y height)
-               (x width))
-     (let ((pt (mandelbrot max-iterations x y)))
-       (if (eq? pt #t)
-           '(255 0 0 0)
-           (calc-color2 (unsafe-car pt) (unsafe-car (unsafe-cdr pt))))))))
+  (let ((result (make-vector (* height width))))
+    (for* ((x width)
+           (y height))
+      (let ((point (mandelbrot max-iterations x y)))
+        (vector-set! result (+ x (* y height))
+         (if (eq? point #t)
+             '(255 0 0 0)
+             (calc-color2 (unsafe-car point) (unsafe-car (unsafe-cdr point)))))))
+    (foldr append '() (vector->list result))))
 
 ;; GUI
 
